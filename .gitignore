@@ -1,0 +1,12 @@
+.venv/
+.env
+**/__pycache__/
+**/saved_conversations/
+**/docs/
+**/config/
+**/test/
+*.sh
+main.py
+uv.lock
+.python-version
+.DS_Store
