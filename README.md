@@ -180,8 +180,7 @@ streamlit run mistral_chat_app.py
 
 ## Demo video
 
-<!-- <video src="static/demo_captain_ticker.mp4" controls="controls" muted="muted" width="640" height="480"></video>-->
-![Demo Video](https://github.com/Siffrein/mistral_chat/assets/Siffrein/demo_captain_ticker.mp4)
+[![Demo video Captain Ticker - function calling](https://raw.githubusercontent.com/Siffrein/mistral_chat/main/assets/thumbnail_captain_ticker.png)](https://raw.githubusercontent.com/Siffrein/mistral_chat/main/assets/demo_captain_ticker.mp4)
 
 
 # Side notes 
