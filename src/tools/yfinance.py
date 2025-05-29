@@ -42,7 +42,7 @@ def get_stock_options(symbol: str, topX=5) -> str:
         return f"""
             Top {topX} calls options for {symbol} expiring {first_date}:\n\n{calls.to_markdown(index=False)}
             \n
-            Source: Yahoo Finance API via yfinance python package
+            Source: Yahoo Finance API via yfinance python package.
             """
         #return f"Top 5 call options for {symbol} expiring {first_date}:\n\n{calls.to_json(index=False)}"
     except Exception as e:

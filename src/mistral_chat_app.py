@@ -87,8 +87,22 @@ with st.sidebar:
     # Temperature slider
     temperature = st.slider("Temperature:", min_value=0.0, max_value=1.0, value=0.7, step=0.1)
     
-    # Conversation management section
     st.markdown("---")
+    # agentic section
+    st.subheader("Agentic Mode")
+    st.session_state.agent_mode = st.checkbox(
+        "Talk with Captain Ticker super Agent",
+        value=False,
+        help="Enable this to call Captain Ticker agent in place of doing direct function calling for stock questions."
+    )
+
+    if st.session_state.agent_mode:
+        st.success("Agent mode activated. All stock questions will be handled by Captain Ticker agent.")
+    else:
+        st.success("Agentic Mode disabled. Doing direct function calling for stock questions.")
+    
+    st.markdown("---")
+    # Conversation management section
     st.subheader("Conversation Management")
     
     # Topic naming/renaming
@@ -178,15 +192,43 @@ def query_mistral(messages, model, api_key, temperature=temperature, **kwargs):
   
     try:
         client = Mistral(api_key=api_key)
-        #response = requests.post(url, headers=headers, data=json.dumps(data))
-        response = client.chat.complete(
-            model = model,
-            messages = messages,
-            temperature = temperature,
-            tools=kwargs.get("tools", None),
-            tool_choice=kwargs.get("tool_choice", "auto")
-            #stream=True  # Uncomment if you want to stream responses
-        )
+
+        if st.session_state.agent_mode:
+            import os
+            from dotenv import load_dotenv
+            load_dotenv()
+            agent_id = os.environ["AGENT_ID"]
+            logger.info(f"Using Agent ID: {agent_id}")
+            response = client.agents.complete(
+                agent_id= agent_id,
+                messages = messages,
+                tools=kwargs.get("tools", None),
+                tool_choice=kwargs.get("tool_choice", "auto"),
+                #stream=True
+            )
+
+            choice = response.choices[0]
+            # catching intermediate answer before tool call
+            if choice.message.content:
+                logger.info(f"Intermediate answer before tool call:\n {choice.message.content}")
+                intermediate_answer = {
+                        "role":"assistant",
+                        "content":choice.message.content 
+                        #"tool_call_id":tool_call['id']
+                }
+                messages = messages + [intermediate_answer]
+
+        else:
+            #response = requests.post(url, headers=headers, data=json.dumps(data))
+            logger.info(f"Using agentless route")
+            response = client.chat.complete(
+                model = model,
+                messages = messages,
+                temperature = temperature,
+                tools=kwargs.get("tools", None),
+                tool_choice=kwargs.get("tool_choice", "auto")
+                #stream=True  # Uncomment if you want to stream responses
+            )
 
 
         #logger.info(f"Payload:\n {json.dumps(data, indent=4)}")
@@ -199,6 +241,7 @@ def query_mistral(messages, model, api_key, temperature=temperature, **kwargs):
 
         #choice = response.json()["choices"][0]
         choice = response.choices[0]
+
         #tool_call = choice["message"]["tool_calls"][0] if choice["message"]["tool_calls"] else None
         tool_call = choice.message.tool_calls[0] if choice.message.tool_calls else None
         logger.info(f"Tool call type: {type(tool_call)}")
@@ -218,17 +261,38 @@ def query_mistral(messages, model, api_key, temperature=temperature, **kwargs):
             
             tool_answer = {
                 "role":"assistant",
-                #"prefix":True, 
-                #"name":function_name, 
-                "content":function_result, 
-                #"tool_call_id":tool_call['id']
+                "prefix":True,
+                "content":function_result
             }
 
             #messages.append(tool_answer)
             logger.info(f"Tool answer:\n {json.dumps(tool_answer, indent=4)}")
 
             #query_mistral(messages, model, api_key, temperature=temperature)
-            return function_result
+            if st.session_state.agent_mode:
+                # Call Mistral again with agent + tool result
+                response = client.agents.complete(
+                    agent_id= agent_id,
+                    messages = messages + [tool_answer],
+                    tools=kwargs.get("tools", None),
+                    tool_choice=kwargs.get("tool_choice", "auto"),
+                    #stream=True
+                )
+                logger.info(f"API response after agent + tool call:\n {response.model_dump_json()}")
+                #return function_result
+                return response.choices[0].message.content
+            else:
+                # Call Mistral again with the tool result
+                # response = client.chat.complete(
+                #     model=model,
+                #     messages = messages + [tool_answer],
+                #     temperature=temperature,
+                #     tools=kwargs.get("tools", None),
+                #     tool_choice=kwargs.get("tool_choice", "auto")
+                # )
+                # logger.info(f"API response after tool call:\n {response.model_dump_json()}")
+                return function_result            
+                #return response.choices[0].message.content
         
         # No tool function called
         else:
@@ -282,7 +346,7 @@ if prompt := st.chat_input("Type your message here... Example: What are the top 
                 st.session_state.api_key,
                 temperature,
                 tools=load_tools(),
-                tool_choice="auto"
+                tool_choice="auto" if st.session_state.agent_mode else "any"  # Use "auto" for agent mode, "any" for direct function calling
             )
             logger.info(f"Assistant response:\n {response}")
             st.markdown(response)
