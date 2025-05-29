@@ -19,7 +19,7 @@ Captain Ticker is a simple and imperfect proof of concept (POC). It serves as a 
 # Working Overview
 
 - The application uses Streamlit's chat interface components
-- API calls are made to Mistral's chat completions endpoint
+- API calls are made to Mistral's chat completions endpoint through Mistral AI python SDK
 - User messages and AI responses are stored in the session state
 - Basic error handling for API failures
 - Clean sidebar design for configuration options
