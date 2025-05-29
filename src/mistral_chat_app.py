@@ -1,5 +1,6 @@
 import streamlit as st
-import requests
+#import requests
+from mistralai import Mistral
 import json
 #import os
 import pickle
@@ -7,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from tools.tool_definitions import load_tools, load_tools_mapping
 import logging
+
 
 # Configure logging
 logging.basicConfig(
@@ -158,39 +160,56 @@ with st.sidebar:
 
 # Function to call Mistral API - prereq : temperature defined
 def query_mistral(messages, model, api_key, temperature=temperature, **kwargs):
-    url = "https://api.mistral.ai/v1/chat/completions"
+    # useless since switching to mistral ai python sdk
+    #url = "https://api.mistral.ai/v1/chat/completions"
        
-    headers = {
-        "Content-Type": "application/json",
-        "Accept": "application/json",
-        "Authorization": f"Bearer {api_key}"
-    }
+    # headers = {
+    #     "Content-Type": "application/json",
+    #     "Accept": "application/json",
+    #     "Authorization": f"Bearer {api_key}"
+    # }
     
-    data = {
-        "model": model,
-        "messages": messages,
-        "temperature": temperature,
-        **kwargs
-    }
-    
+    # data = {
+    #     "model": model,
+    #     "messages": messages,
+    #     "temperature": temperature,
+    #     **kwargs
+    # }
+  
     try:
-        response = requests.post(url, headers=headers, data=json.dumps(data))
-        logger.info(f"Payload:\n {json.dumps(data, indent=4)}")
-        resp = response.json()
-        logger.info(f"API response:\n {json.dumps(resp, indent=4)}")
+        client = Mistral(api_key=api_key)
+        #response = requests.post(url, headers=headers, data=json.dumps(data))
+        response = client.chat.complete(
+            model = model,
+            messages = messages,
+            temperature = temperature,
+            tools=kwargs.get("tools", None),
+            tool_choice=kwargs.get("tool_choice", "auto")
+            #stream=True  # Uncomment if you want to stream responses
+        )
 
-        response.raise_for_status()  # Raise exception for 4XX/5XX errors
 
-        choice = response.json()["choices"][0]
-        tool_call = choice["message"]["tool_calls"][0] if choice["message"]["tool_calls"] else None
+        #logger.info(f"Payload:\n {json.dumps(data, indent=4)}")
+        resp = response.model_dump_json()  #response.choices[0]
+        
+        #logger.info(f"API response:\n {json.dumps(resp, indent=4)}")
+        logger.info(f"API response:\n {resp}")
+        
+        #response.raise_for_status()  # Raise exception for 4XX/5XX errors
+
+        #choice = response.json()["choices"][0]
+        choice = response.choices[0]
+        #tool_call = choice["message"]["tool_calls"][0] if choice["message"]["tool_calls"] else None
+        tool_call = choice.message.tool_calls[0] if choice.message.tool_calls else None
         logger.info(f"Tool call type: {type(tool_call)}")
-        logger.info(f"Tool_call:\n {json.dumps(tool_call, indent=4)}")
-
+        #logger.info(f"Tool_call:\n {json.dumps(tool_call, indent=4)}")
+        logger.info(f"Tool_call:\n {tool_call}")
+        
         if tool_call:
             # tool function called
             #tool_call = response.choices[0].message.tool_calls[0]
-            function_name = tool_call['function']['name']
-            function_params = json.loads(tool_call['function']['arguments'])
+            function_name = tool_call.function.name
+            function_params = json.loads(tool_call.function.arguments)
             print("\nfunction_name: ", function_name, "\nfunction_params: ", function_params)
             names_to_functions = load_tools_mapping()
             function_result = names_to_functions[function_name](**function_params)
@@ -213,11 +232,13 @@ def query_mistral(messages, model, api_key, temperature=temperature, **kwargs):
         
         # No tool function called
         else:
-            resp = response.json()["choices"][0]["message"]["content"]
-            logger.info(f"No tool resp - Inside query_mistral API resp:\n {resp}")
+            #resp = response.json()["choices"][0]["message"]["content"]
+            resp = response.choices[0].message.content
+            logger.info(f"No tool called:\n {resp}")
             return resp
 
-    except requests.exceptions.RequestException as e:
+    #except requests.exceptions.RequestException as e:
+    except Exception as e:
         return f"Error: {str(e)}"
 
 
