@@ -180,7 +180,7 @@ streamlit run mistral_chat_app.py
 
 ## Demo video
 
-to do
+<video src="static/demo_captain_ticker.mp4" controls="controls" muted="muted" width="640" height="480"></video>
 
 
 # Side notes 
