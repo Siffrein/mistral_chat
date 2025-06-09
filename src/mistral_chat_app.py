@@ -199,13 +199,18 @@ def query_mistral(messages, model, api_key, temperature=temperature, **kwargs):
             load_dotenv()
             agent_id = os.environ["AGENT_ID"]
             logger.info(f"Using Agent ID: {agent_id}")
+            
+            tools=kwargs.get("tools", None)
+            tool_choice=kwargs.get("tool_choice", "auto")
+
             response = client.agents.complete(
                 agent_id= agent_id,
                 messages = messages,
-                tools=kwargs.get("tools", None),
-                tool_choice=kwargs.get("tool_choice", "auto"),
+                tools=tools,
+                tool_choice=tool_choice,
                 #stream=True
             )
+            logger.info(f"Agent tool choice: {tool_choice}")
 
             choice = response.choices[0]
             # catching intermediate answer before tool call
@@ -274,8 +279,8 @@ def query_mistral(messages, model, api_key, temperature=temperature, **kwargs):
                 response = client.agents.complete(
                     agent_id= agent_id,
                     messages = messages + [tool_answer],
-                    tools=kwargs.get("tools", None),
-                    tool_choice=kwargs.get("tool_choice", "auto"),
+                    #tools=kwargs.get("tools", None),
+                    #tool_choice=kwargs.get("tool_choice", "auto"),
                     #stream=True
                 )
                 logger.info(f"API response after agent + tool call:\n {response.model_dump_json()}")
@@ -346,7 +351,7 @@ if prompt := st.chat_input("Type your message here... Example: What are the top 
                 st.session_state.api_key,
                 temperature,
                 tools=load_tools(),
-                tool_choice="auto" if st.session_state.agent_mode else "any"  # Use "auto" for agent mode, "any" for direct function calling
+                tool_choice="auto" #if st.session_state.agent_mode else "auto"
             )
             logger.info(f"Assistant response:\n {response}")
             st.markdown(response)
